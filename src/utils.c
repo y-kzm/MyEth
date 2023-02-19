@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>             // uintX_t
+#include <stdint.h>
 
 /**
- * @brief バイトオーダーの入れ替え（16ビット）
+ * @brief バイトオーダの入れ替え（16ビット）
  * 
  * @param x 
  * @return uint16_t 
@@ -12,17 +12,34 @@
 static uint16_t bswap16(uint16_t x)
 {
     return (
-        (((x) >> 8) & 0xff) | (((x) & 0xff) << 8)
+        (x & 0x00ff) << 8 |
+		(x & 0xff00) >> 8 
+	);
+}
+
+/**
+ * @brief バイトオーダの入れ替え（32ビット）
+ * 
+ * @param x 
+ * @return uint32_t 
+ */
+static uint32_t bswap32(uint32_t x)
+{
+    return (
+        (x & 0x000000ff) << 24 |
+        (x & 0x0000ff00) << 8 |
+        (x & 0x00ff0000) >> 8 |
+        (x & 0xff000000) >> 24
     );
 }
 
-uint16_t hton_s(uint16_t x)
+uint16_t my_htons(uint16_t x)
 {
     return bswap16(x);
 }
 
 /**
- * @brief MACアドレス文字列をネットワークバイトオーダーに変換
+ * @brief MACコロン表記をバイナリのネットワークバイトオーダに変換
  * 
  * @param str 
  * @param mac
@@ -46,7 +63,7 @@ int my_ether_aton(const char *str, uint8_t *mac)
 }
 
 /**
- * @brief ネットワークバイトオーダーをMACアドレス文字列に変換
+ * @brief バイナリのネットワークバイトオーダをMACコロン表記に変換
  * 
  * @param mac
  * @param buf 
@@ -60,20 +77,18 @@ char *my_ether_ntoa(const uint8_t *mac, char *buf)
 }
 
 /**
- * @brief IPv4アドレス文字列をネットワークバイトオーダーに変換 
+ * @brief IPv4ドット表記をネットワークバイトオーダのバイナリに変換 
  * 
  * @param str 
  * @param inet
  * @return int 
  */
-int my_inet_aton(const char *str, uint32_t *inet)
+uint32_t my_inet_aton(const char *str)
 {
     char *ptr, *saveptr = NULL;
     int	i;
     char *tmp = strdup(str);
 	uint8_t in[4];
-
-	printf("%s\n", str);
 
 	for(i=0, ptr=strtok_r(tmp, ".", &saveptr); i<4; i++, ptr=strtok_r(NULL, ".", &saveptr)){
 		if(ptr == NULL){
@@ -81,21 +96,24 @@ int my_inet_aton(const char *str, uint32_t *inet)
 			return -1;
 		}
 		in[i] = strtol(ptr, NULL, 10);
-		printf("%s\n", ptr);
-		printf("%u\n", in[i]);
 	}
-	// inet = (uint32_t *)((in[3] << 24) | (in[2] << 16) | (in[1] << 8) | (in[0]));
-
-	inet += (in[0] << 0);
-	inet += (in[1] << 8);
-	inet += (in[2] << 16);
-	inet += (in[3] << 24);
-
 	free(tmp);
 
-	return 0;
+	return (
+		(in[3] << 24) | 
+		(in[2] << 16) | 
+		(in[1] << 8) | 
+		(in[0])
+	);
 }
 
+/**
+ * @brief ネットワークバイトオーダのバイナリをIPv4ドット表記に変換 
+ * 
+ * @param inet 
+ * @param buf 
+ * @return char* 
+ */
 char *my_inet_ntoa(const uint32_t inet, char *buf)
 {	
 	uint8_t addr[4];
