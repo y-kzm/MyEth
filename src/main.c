@@ -11,19 +11,24 @@
 #include <net/if.h>             // ifreq 
 #include <linux/if_packet.h>    // sockaddr_ll
 
-#include "include.h"
+#include "param.h"
 #include "utils.h"
+#include "ether.h"
+#include "ip.h"
 
 int DeviceSoc;
 
 int	EndFlag=0;
 
-PARAM Param;
-IP_RECV_BUF IpRecvBuf[IP_RECV_BUF_NO];
+struct PARAM Param;
+struct IP_RECV_BUF IpRecvBuf[IP_RECV_BUF_NO];
 
 /**
  * @brief IPパケット受信バッファの初期化
+ * 
+ * @return int 
  */
+ 
 int IpRecvBufInit()
 {
     int i;
@@ -59,21 +64,21 @@ void *EthThread(void *arg)
 			case 0:
 				break;
 			default:
+                // イベント発生時の処理
 				if(fds[0].revents & (POLLIN | POLLERR)){
 					if((len = read(DeviceSoc, buf, sizeof(buf))) <= 0){
 						perror("read");
-					}
-					else{
+					} 
+                    else{
                         // Etherフレームの解析
-						// EtherRecv(DeviceSoc, buf, len);
-                        printf("recieved\n");
+						EtherRecv(DeviceSoc, buf, len);
 					}
 				}
 				break;
 		}
 	}
 
-	return(NULL);
+	return NULL;
 }
 
 /**
@@ -111,7 +116,7 @@ int init_socket(const char *device)
     if(bind(soc, (struct sockaddr *)&sa, sizeof(sa)) < 0){
 		perror("bind");
 		close(soc);
-		return(-1);
+		return -1;
 	}
 
     return soc;
@@ -162,9 +167,10 @@ int main(int argc, char *argv[])
 	signal(SIGTERM, sig_term);
 	signal(SIGQUIT, sig_term);
 
-    // SIGIPEによる予期しないしない終了を防ぐ
+    // SIGIPEによる予期しない終了を防ぐ
 	signal(SIGPIPE, SIG_IGN);
 
+    // TODO: スレッドの作成
     EthThread(NULL);
 
     printf("End...\n");

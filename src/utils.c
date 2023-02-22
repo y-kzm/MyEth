@@ -38,6 +38,21 @@ uint16_t my_htons(uint16_t x)
     return bswap16(x);
 }
 
+uint16_t my_ntohs(uint16_t x)
+{
+    return bswap16(x);
+}
+
+uint32_t my_htonl(uint32_t x)
+{
+    return bswap32(x);
+}
+
+uint32_t my_ntohl(uint32_t x)
+{
+    return bswap32(x);
+}
+
 /**
  * @brief MACコロン表記をバイナリのネットワークバイトオーダに変換
  * 
