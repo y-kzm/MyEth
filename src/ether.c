@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>     // memcmp
+#include <time.h>
 
 #include "param.h"
 #include "utils.h"

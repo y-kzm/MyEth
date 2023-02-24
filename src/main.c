@@ -14,6 +14,7 @@
 #include "param.h"
 #include "utils.h"
 #include "ether.h"
+#include "arp.h"
 #include "ip.h"
 
 int DeviceSoc;
@@ -23,12 +24,13 @@ int	EndFlag=0;
 struct PARAM Param;
 struct IP_RECV_BUF IpRecvBuf[IP_RECV_BUF_NO];
 
+extern struct ARP_TABLE *ArpHashTable[ARP_TABLE_SIZE];
+
 /**
  * @brief IPパケット受信バッファの初期化
  * 
  * @return int 
  */
- 
 int IpRecvBufInit()
 {
     int i;
@@ -138,6 +140,7 @@ void sig_term(int signal)
 int main(int argc, char *argv[])
 {
     char buf[80];
+    int i;
 
     // 擬似乱数のseedを設定
     srandom(time(NULL));
@@ -173,6 +176,11 @@ int main(int argc, char *argv[])
     // TODO: スレッドの作成
     EthThread(NULL);
 
-    printf("End...\n");
+    // ARPテーブルの開放
+    for(i=0; i<ARP_TABLE_SIZE; i++){
+        free(ArpHashTable[i]);
+    }
+
+    printf("Good Bye...\n");
     return 0;
 }

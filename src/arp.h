@@ -26,6 +26,15 @@ struct ether_arp
 } __attribute__ ((__packed__));
 
 
+#define ARP_TABLE_SIZE    5
+struct ARP_TABLE
+{
+    uint8_t mac_addr[ETH_ALEN];
+    uint32_t ip_addr;
+    char *device;
+    //time_t timestamp;
+};
+
 int ArpRecv(int soc, struct ether_header *ether, uint8_t *data, int len);
 
 #endif
