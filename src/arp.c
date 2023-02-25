@@ -14,11 +14,11 @@ extern struct PARAM Param;
 extern uint8_t AllZeroMac[ETH_ALEN];
 extern uint8_t	BcastMac[ETH_ALEN];
 
-// Hash Table（Linear Probing）MEMO: Linked List
+// Hash Table（Linear Probing）
 struct ARP_TABLE *ArpHashTable[ARP_TABLE_SIZE];
 
 /**
- * @brief Jenkins hash function
+ * @brief Jenkinsハッシュ関数
  * 
  * @param key 
  * @return int 
@@ -41,7 +41,7 @@ static int ArpHash(uint8_t *key)
 }
 
 /**
- * @brief テーブルへエントリの追加
+ * @brief エントリの追加
  * 
  * @param mac_addr 
  * @param ip_addr 
@@ -53,7 +53,6 @@ int ArpAddTableEntry(uint8_t *mac_addr, uint32_t ip_addr, char *device)
     struct ARP_TABLE *item = (struct ARP_TABLE *)malloc(sizeof(struct ARP_TABLE));
     int hashindex, tempindex;
 
-    // 32ビットを8ビット*4のArrayに変換
     uint8_t temp[4];
     temp[0] = (ip_addr & 0x000000ff);
 	temp[1] = (ip_addr & 0x0000ff00) >> 8;
@@ -95,21 +94,63 @@ int ArpAddTableEntry(uint8_t *mac_addr, uint32_t ip_addr, char *device)
     return 0;
 }
 
-// とりあえずのdisplay関数
-void display()
+/**
+ * @brief ARPテーブルの表示
+ * 
+ */
+void ShowArpTable()
 {
     int i = 0;
     char buf[20];
 
+    puts("+-----------------+-------------------+-----------------+");
+    puts("|    IP Address   |    MAC Address    |      Device     |");
+    puts("+-----------------+-------------------+-----------------+");
     for(i=0; i<ARP_TABLE_SIZE; i++){
-        if (ArpHashTable[i] != NULL) {
-            printf(" (%s, ", my_inet_ntoa(ArpHashTable[i]->ip_addr, buf));
-            printf("%s) ", my_ether_ntoa(ArpHashTable[i]->mac_addr, buf));
-        } else
-            printf(" ~~ ");
+        if (ArpHashTable[i] != NULL){
+            printf("| %15s ", my_inet_ntoa(ArpHashTable[i]->ip_addr, buf));
+            printf("| %15s ", my_ether_ntoa(ArpHashTable[i]->mac_addr, buf));
+            printf("| %15s |\n", ArpHashTable[i]->device);
+        }
     }
+    puts("+-----------------+-------------------+-----------------+");
+}
 
-    printf("\n");
+/**
+ * @brief ARPパケットの送信
+ * 
+ * @param soc 
+ * @param op 
+ * @param eth_shost 
+ * @param eth_dhost 
+ * @param sha 
+ * @param tha 
+ * @param spa 
+ * @param tpa 
+ * @return int 
+ */
+int ArpSend(int soc, uint16_t op, 
+            uint8_t eth_shost[ETH_ALEN], uint8_t eth_dhost[ETH_ALEN], 
+            uint8_t sha[ETH_ALEN], uint8_t tha[ETH_ALEN], 
+            uint32_t spa, uint32_t tpa)
+{
+    struct ether_arp arp;
+
+    memset(&arp, 0, sizeof(struct ether_arp));
+    arp.hdr.hrd_type = my_htons(ARPHRD_ETHER);
+    arp.hdr.pro_type = my_htons(ETHERTYPE_IP);
+    arp.hdr.hrd_len = ETH_ALEN;
+    arp.hdr.pro_len = IP_ALEN;
+    arp.hdr.op = my_htons(op);
+
+    memcpy(arp.sha, sha, ETH_ALEN);
+    memcpy(arp.tha, tha, ETH_ALEN);
+    arp.spa = spa;
+    arp.tpa = tpa;
+
+    EtherSend(soc, eth_shost, eth_dhost, ETHERTYPE_ARP, (uint8_t *)&arp, sizeof(struct ether_arp));
+
+    return 0;
 }
 
 /**
@@ -147,17 +188,19 @@ int ArpRecv(int soc, struct ether_header *ether, uint8_t *data, int len)
     if(my_ntohs(arp->hdr.op) == ARPOP_REQUEST){
         addr = arp->tpa;
         if(Param.vip == arp->tpa){
-            printf("arp request\n");
+            // printf("arp request\n");
             ArpAddTableEntry(arp->sha, arp->spa, Param.device);
-            display();
-            // ArpSend()
+            ArpSend(soc, ARPOP_REPLY, 
+                    Param.vmac, ether->shost, 
+                    Param.vmac, arp->sha,
+                    arp->tpa, arp->spa);
         } else {
             return -1;
         }
     } else if(my_ntohs(arp->hdr.op) == ARPOP_REPLY){
         addr = my_ntohl(arp->tpa);
         if(Param.vip == addr || addr == 0){
-            printf("arp reply\n");
+            // printf("arp reply\n");
             // AddArpTable()
         } else {
             return -1;
