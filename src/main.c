@@ -18,29 +18,11 @@
 #include "ip.h"
 
 int DeviceSoc;
-
 int	EndFlag=0;
-
 struct PARAM Param;
-struct IP_RECV_BUF IpRecvBuf[IP_RECV_BUF_NO];
 
-extern struct ARP_TABLE *ArpHashTable[ARP_TABLE_SIZE];
+extern struct IP_RECV_BUF IpRecvBuf[IP_RECV_BUF_NO];
 
-/**
- * @brief IPパケット受信バッファの初期化
- * 
- * @return int 
- */
-int IpRecvBufInit()
-{
-    int i;
-
-    for(i=0; i<IP_RECV_BUF_NO; i++){
-        IpRecvBuf[i].id = -1;
-    }
-
-    return 0;
-}
 
 /**
  * @brief Etherフレームの受信処理
@@ -102,7 +84,7 @@ int init_socket(const char *device)
     }
 
     memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, device, IFNAMSIZ - 1);
+    strncpy(ifr.ifr_name, device, IF_NAMESIZE - 1);
     // interface index を取得
     if(ioctl(soc, SIOCGIFINDEX, &ifr) < 0){
         perror("ioctl");
@@ -117,6 +99,23 @@ int init_socket(const char *device)
     // socketにインターフェースをbind
     if(bind(soc, (struct sockaddr *)&sa, sizeof(sa)) < 0){
 		perror("bind");
+		close(soc);
+		return -1;
+	}
+
+    // フラグの取得（SIOCGIFFLAG）
+    // Ref: https://linuxjm.osdn.jp/html/LDP_man-pages/man7/netdevice.7.html
+    if(ioctl(soc, SIOCGIFFLAGS, &ifr) < 0){
+		perror("ioctl");
+		close(soc);
+		return -1;
+	}
+
+    // プロミスキャスモードとインターフェースUPのフラグを立てる
+	ifr.ifr_flags = ifr.ifr_flags | IFF_PROMISC | IFF_UP;
+    // フラグのセット（SIOCSIFFLAGS）
+	if(ioctl(soc, SIOCSIFFLAGS, &ifr) < 0){
+		perror("ioctl");
 		close(soc);
 		return -1;
 	}
@@ -140,7 +139,6 @@ void sig_term(int signal)
 int main(int argc, char *argv[])
 {
     char buf[80];
-    int i;
 
     // 擬似乱数のseedを設定
     srandom(time(NULL));
@@ -177,10 +175,7 @@ int main(int argc, char *argv[])
     EthThread(NULL);
 
     // ARPテーブルの開放
-    for(i=0; i<ARP_TABLE_SIZE; i++){
-        free(ArpHashTable[i]);
-    }
-
+    FreeArpTable();
     printf("Good Bye...\n");
     return 0;
 }

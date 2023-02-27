@@ -11,9 +11,9 @@
 
 struct ether_header
 {
-    uint8_t dhost[ETH_ALEN];
-    uint8_t shost[ETH_ALEN];
-    uint16_t type;
+    uint8_t dhost[ETH_ALEN];    // 送信元MACアドレス
+    uint8_t shost[ETH_ALEN];    // 宛先MACアドレス
+    uint16_t type;              // 上位層プロトコルタイプ
 } __attribute__ ((__packed__));
 
 int EtherSend(int soc, uint8_t shost[ETH_ALEN], uint8_t dhost[ETHER_H], 

@@ -35,6 +35,7 @@ struct ARP_TABLE
     //time_t timestamp;
 };
 
+void FreeArpTable();
 int ArpRecv(int soc, struct ether_header *ether, uint8_t *data, int len);
 
 #endif

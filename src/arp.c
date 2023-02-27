@@ -18,6 +18,18 @@ extern uint8_t	BcastMac[ETH_ALEN];
 struct ARP_TABLE *ArpHashTable[ARP_TABLE_SIZE];
 
 /**
+ * @brief ARPテーブルの開放
+ * 
+ */
+void FreeArpTable()
+{
+    int i;
+    for(i=0; i<ARP_TABLE_SIZE; i++){
+        free(ArpHashTable[i]);
+    }
+}
+
+/**
  * @brief Jenkinsハッシュ関数
  * 
  * @param key 
@@ -173,7 +185,7 @@ int ArpRecv(int soc, struct ether_header *ether, uint8_t *data, int len)
 	len -= sizeof(struct ether_arp);
 
     // ハードウェアタイプで分岐    
-    switch (arp->hdr.hrd_type){
+    switch(arp->hdr.hrd_type){
         case ARPHRD_ETHER:
         default:
             // IPのみサポート

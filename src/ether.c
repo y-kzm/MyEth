@@ -7,6 +7,7 @@
 #include "utils.h"
 #include "ether.h"
 #include "arp.h"
+#include "ip.h"
 
 extern struct PARAM Param;
 
@@ -93,10 +94,11 @@ int EtherRecv(int soc, uint8_t *in_ptr, int in_len)
             break;
         case ETHERTYPE_IP:
             printf("--- IP\n");
-		    // IpRecv(soc, in_ptr, in_len, eh, ptr, len); 
+		    IpRecv(soc, ptr, len);
+            // MEMO: ICMP Reqを受け取ってReplyを返せるようにする まずはIPを受け取れるように
             break;
         default:
-            printf("Not supported\n");
+            printf("Not supported: ether_type\n");
             break;
 
     }
