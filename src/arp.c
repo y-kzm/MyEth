@@ -107,6 +107,38 @@ int ArpAddTableEntry(uint8_t *mac_addr, uint32_t ip_addr, char *device)
 }
 
 /**
+ * @brief ARPテーブルを検索する
+ * TODO: ロックの実装
+ * 
+ * @param key_ip 
+ * @param val_mac 
+ * @return int 
+ */
+int ArpSearchTable(uint32_t key_ip, uint8_t val_mac[ETH_ALEN])
+{
+    uint8_t temp[4];
+    temp[0] = (key_ip & 0x000000ff);
+	temp[1] = (key_ip & 0x0000ff00) >> 8;
+	temp[2] = (key_ip & 0x00ff0000) >> 16;
+	temp[3] = (key_ip & 0xff000000) >> 24;
+
+    // ハッシュ値を取得
+    int hashindex = ArpHash(temp);
+
+    // 空の空の要素があるまで検索
+    while (ArpHashTable[hashindex] != NULL) {
+        if (ArpHashTable[hashindex]->ip_addr == key_ip){
+             memcpy(val_mac, ArpHashTable[hashindex], ETH_ALEN);
+             return 1;
+        }
+        ++hashindex;
+        hashindex %= ARP_TABLE_SIZE;
+    }
+
+    return 0;
+}
+
+/**
  * @brief ARPテーブルの表示
  * 
  */
@@ -220,4 +252,44 @@ int ArpRecv(int soc, struct ether_header *ether, uint8_t *data, int len)
     }
     
     return 0;
+}
+
+
+/**
+ * @brief IPアドレスからMACアドレスを解決する
+ * 
+ * @param soc 
+ * @param daddr 
+ * @param dmac 
+ * @param gratuitous 
+ * @return int 
+ */
+int GetTargetMac(int soc, uint32_t daddr, uint8_t dmac[ETH_ALEN], int gratuitous)
+{
+    uint32_t addr;
+    int count = 0;
+
+    // 同一サブネットかを確認
+    if((daddr & Param.vmask) == (Param.vip & Param.vmask)){
+        addr = daddr;
+    } else {
+        addr = Param.gateway;
+    }
+
+    // ARPテーブルの検索
+    while(!ArpSearchTable(addr, dmac)){
+        if(gratuitous){
+            // TODO: GARP
+            printf("GARP is not supported\n");
+            return -1;
+        } else {
+            // TODO: ARPリクエストの送信
+        }
+        count ++;
+        if(count > ARP_RETRY_COUNT){
+            return 0;
+        }
+    }
+
+    return 1;
 }

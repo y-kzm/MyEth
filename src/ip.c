@@ -1,12 +1,17 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 #include <time.h>
 
 #include "utils.h"
+#include "param.h"
 #include "ether.h"
+#include "arp.h"
 #include "ip.h"
 #include "icmp.h"
+
+extern struct PARAM Param;
 
 struct IP_RECV_BUF IpRecvBuf[IP_RECV_BUF_NO];
 
@@ -25,6 +30,103 @@ int IpRecvBufInit()
 
     return 0;
 }
+
+/**
+ * @brief IPパケットの送信処理（Flagment非対応）
+ * TODO: Flagment対応
+ * 
+ * @param soc 
+ * @param smac 
+ * @param dmac 
+ * @param saddr 
+ * @param daddr 
+ * @param ip_proto 
+ * @param data 
+ * @param len 
+ */
+int IpSend(int soc, uint8_t smac[ETH_ALEN], uint8_t dmac[ETH_ALEN], uint32_t saddr, uint32_t daddr, uint8_t ip_proto, uint8_t *data, int len)
+{
+    struct ip_header *ip;
+    uint16_t id;
+    uint8_t *dptr, *ptr, sbuf[ETHERMTU];
+    int lest, sndLen, off;
+
+    if(len > ETHERMTU - sizeof(struct ip_header)){
+        printf("IpSend: data toot long\n");
+        return -1;
+    }
+
+    id = random();
+
+    dptr = data;
+    lest = len;
+
+    while(lest > 0){
+        if(lest > ETHERMTU - sizeof(struct ip_header)){
+            // flagment
+		} else {
+			sndLen = lest;
+		}
+
+        ptr = sbuf;
+        ip = (struct ip_header *)ptr;
+        memset(ip, 0, sizeof(struct ip_header));
+
+        ip->ihl = 5;  // オプションなし
+        ip->ver = 4;
+        // tos
+        ip->tot_len = my_htons(sizeof(struct ip_header) + sndLen);
+        ip->id = my_htons(id);
+        off=(dptr - data) / 8;
+		ip->frag_off = my_htons(0 | (off & 0x1fffU));
+        ip->ttl = 64;
+        ip->protocol = ip_proto;
+        ip->saddr = saddr;
+        ip->daddr = daddr;
+        ip->hcheck = 0;
+        ip->hcheck = checksum((uint8_t *)ip, sizeof(struct ip_header));
+
+        ptr += sizeof(struct ip_header);
+        memcpy(ptr, dptr, sndLen);
+        ptr += sndLen;
+
+        EtherSend(soc, smac, dmac, ETHERTYPE_IP, sbuf, ptr - sbuf);
+
+        dptr += sndLen;
+        lest -= sndLen;
+    }
+
+    return 0;
+}
+
+
+/**
+ * @brief IPパケットを送信する前処理
+ * 
+ * @param soc 
+ * @param saddr 
+ * @param daddr 
+ * @param ip_proto 
+ * @param data 
+ * @param len 
+ * @return int 
+ */
+int IpSendProxy(int soc, uint32_t saddr, uint32_t daddr, uint8_t ip_proto, uint8_t *data, int len)
+{
+    uint8_t dmac[ETH_ALEN];
+
+    // IPアドレスからMACアドレスを取得
+    if(GetTargetMac(soc, daddr, dmac, 0)){
+        printf("  --- Send Echo Reply\n");
+        return (IpSend(soc, Param.vmac, dmac, saddr, daddr, ip_proto, data, len));
+    } else {
+        printf("Destination Host Unreachable\n");
+        return -1;
+    }
+
+    return 0;
+}
+
 
 /**
  * @brief IPパケットの受信処理
@@ -84,6 +186,7 @@ int IpRecv(int soc, uint8_t *data, int len)
 
     // フラグメント関連の処理
 
+    // IP Protocolで分岐
     switch(ip->protocol){
         case IPPROTO_ICMP:
             printf("  --- ICMP\n");

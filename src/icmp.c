@@ -10,9 +10,19 @@
 
 extern struct PARAM Param;
 
+/**
+ * @brief ICMP Echo Replyの送信
+ * 
+ * @param soc 
+ * @param recv_ip 
+ * @param recv_icmp 
+ * @param data 
+ * @param len 
+ * @return int 
+ */
 int IcmpSendEchoReply(int soc, struct ip_header *recv_ip, struct icmp *recv_icmp, uint8_t *data, int len)
 {
-    uint8_t *ptr, sbuf[2048]; // TODO: バッファ調整
+    uint8_t *ptr, sbuf[64*1024]; // TODO: バッファ調整
     struct icmp *icmp;
 
     ptr = sbuf;
@@ -27,12 +37,13 @@ int IcmpSendEchoReply(int soc, struct ip_header *recv_ip, struct icmp *recv_icmp
 
     ptr += ECHO_HDR_SIZE;
 
-    memcpy(ptr, data, len);  // lenでいいのか？
+    memcpy(ptr, data, len);
     ptr += len;
 
-    // チェックサム
+    // チェックサムの算出
+    icmp->icmp_cksum = checksum(sbuf, ptr-sbuf);
 
-    //IpSend(soc, &recv_ip->daddr, &recv_ip->saddr, IPPROTO_ICMP, sbuf, ptr - sbuf);  // dontFlagmentは？
+    IpSendProxy(soc, recv_ip->daddr, recv_ip->saddr, IPPROTO_ICMP, sbuf, ptr - sbuf);
 
     return 0;
 }
@@ -49,6 +60,7 @@ int IcmpRecv(int soc, struct ip_header *ip, uint8_t *data, int len)
 {
     struct icmp *icmp;
     uint8_t *ptr = data;
+    uint16_t sum;
     int icmplen;
 
     icmplen = len;
@@ -57,13 +69,21 @@ int IcmpRecv(int soc, struct ip_header *ip, uint8_t *data, int len)
     ptr += ECHO_HDR_SIZE;
     len -= ECHO_HDR_SIZE;
 
-    // チェックサム
+    // チェックサムの計算
+    sum = checksum((uint8_t *)icmp, icmplen);
+    
+    // チェックサムの検証
+	if(sum != 0 && sum != 0xffff){
+		printf("Bad icmp checksum\n");
+		return -1;
+	}
 
     if(Param.vip == ip->daddr){
+        // ICMP Typeで分岐
         switch(icmp->header.type){
             case ICMP_ECHO:
                 printf("  --- Echo Req\n");
-                // SendReply(soc, ip, icmp, ptr, len)
+                IcmpSendEchoReply(soc, ip, icmp, ptr, len);
                 break;
             case ICMP_ECHOREPLY:
                 printf("  --- Echo Reply");

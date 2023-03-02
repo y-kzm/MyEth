@@ -7,6 +7,9 @@
 #define ARPHRD_ETHER 	1
 #define	ARPHRD_IEEE802	6
 
+
+#define ARP_RETRY_COUNT    3
+
 struct arphdr
 {
     uint16_t hrd_type;  // ハードウェアタイプ
@@ -37,5 +40,6 @@ struct ARP_TABLE
 
 void FreeArpTable();
 int ArpRecv(int soc, struct ether_header *ether, uint8_t *data, int len);
+int GetTargetMac(int soc, uint32_t daddr, uint8_t dmac[ETH_ALEN], int gratuitous);
 
 #endif

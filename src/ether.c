@@ -58,6 +58,7 @@ int EtherSend(int soc, uint8_t shost[ETH_ALEN], uint8_t dhost[ETHER_H],
         ptr += padlen;
     }
 
+    printf(">>>> len: %ld\n", ptr - sbuf);
     write(soc, sbuf, ptr - sbuf);
 
     return 0;
@@ -87,6 +88,7 @@ int EtherRecv(int soc, uint8_t *in_ptr, int in_len)
 	    return -1;
 	}
 
+    // Ether Typeで分岐
     switch(my_ntohs(ether->type)){
         case ETHERTYPE_ARP:
             printf("--- ARP\n");

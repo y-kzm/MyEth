@@ -41,5 +41,6 @@ struct ip_header
 
 int IpRecvBufInit();
 int IpRecv(int soc, uint8_t *data, int len);
+int IpSendProxy(int soc, uint32_t saddr, uint32_t daddr, uint8_t ip_proto, uint8_t *data, int len);
 
 #endif
