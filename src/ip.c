@@ -6,6 +6,7 @@
 #include "utils.h"
 #include "ether.h"
 #include "ip.h"
+#include "icmp.h"
 
 struct IP_RECV_BUF IpRecvBuf[IP_RECV_BUF_NO];
 
@@ -25,11 +26,20 @@ int IpRecvBufInit()
     return 0;
 }
 
+/**
+ * @brief IPパケットの受信処理
+ * 
+ * @param soc 
+ * @param data 
+ * @param len 
+ * @return int 
+ */
 int IpRecv(int soc, uint8_t *data, int len)
 {
     struct ip_header *ip;
     uint8_t opt[ETHERMTU];
     uint8_t *ptr = data;
+    uint16_t sum;
     int optlen, paylen;
 
     if(len < sizeof(struct ip_header)){
@@ -57,20 +67,27 @@ int IpRecv(int soc, uint8_t *data, int len)
 
     // チェックサムの計算
     if(optlen == 0){
-        // cheksum();
+        sum = checksum((uint8_t *)ip, sizeof(struct ip_header));
     } else {
         // cheksum2();
+        // TODO: IPヘッダオプションがあった場合のチェックサム計算
     }
 
     // チェックサムの検証
+    if(sum != 0 && sum != 0xffff){
+		printf("Bad ip checksum\n");
+		return -1;
+	}
 
     // ペイロード長 = IPパケット長 - IPヘッダ長（32bit単位なのでx4）
     paylen = my_ntohs(ip->tot_len) - (ip->ihl * 4);
 
+    // フラグメント関連の処理
+
     switch(ip->protocol){
         case IPPROTO_ICMP:
             printf("  --- ICMP\n");
-            IcmpRecv(soc, ptr, len);
+            IcmpRecv(soc, ip, ptr, len);
             break;
         default:
             printf("Not suppoted: ip_protocol(%d)\n", ip->protocol);

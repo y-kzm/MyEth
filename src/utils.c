@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdint.h>
 
+
 /**
  * @brief バイトオーダの入れ替え（16ビット）
  * 
@@ -140,4 +141,39 @@ char *my_inet_ntoa(const uint32_t inet, char *buf)
 	sprintf(buf, "%d.%d.%d.%d", addr[0],addr[1],addr[2],addr[3]);
 
 	return buf;
+}
+
+
+/**
+ * @brief チェックサムの計算（引数データ1つ）
+ * TODO: IPヘッダオプションのチェックサム計算では引数データが２つあるとやりやすい
+ * 
+ * @param data 
+ * @param len 
+ * @return uint16_t 
+ */
+uint16_t checksum(uint8_t *data, int len)
+{
+	uint32_t sum = 0;
+	uint16_t *ptr;
+	int i;
+
+	ptr = (uint16_t *)data;
+
+	// 16bitごとに和をとる
+	for(i=len; i>1; i-=2){
+		sum += *ptr++;
+	}
+	// 8bit残っていた場合にそれを加える
+	if(i == 1){
+		sum += *(uint8_t *)ptr;
+	}
+
+	// 桁溢れを戻す
+	while(sum >> 16){
+		sum = (sum & 0xffff) + (sum >> 16);
+	}
+
+	// NOTをとる
+	return(~sum);
 }
