@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
+#include <unistd.h>
 #include <signal.h>             // signal()
 #include <poll.h>               // poll()
 #include <stdint.h>             // uintX_t
@@ -10,12 +11,15 @@
 #include <sys/ioctl.h>          // ifreq
 #include <net/if.h>             // ifreq 
 #include <linux/if_packet.h>    // sockaddr_ll
+#include <pthread.h>
+#include <errno.h>
 
 #include "param.h"
 #include "utils.h"
 #include "ether.h"
 #include "arp.h"
 #include "ip.h"
+#include "cmd.h"
 
 int DeviceSoc;
 int	EndFlag=0;
@@ -23,6 +27,43 @@ struct PARAM Param;
 
 extern struct IP_RECV_BUF IpRecvBuf[IP_RECV_BUF_NO];
 
+/**
+ * @brief 標準入力の受信処理
+ * 
+ * @param argv 
+ * @return void* 
+ */
+void *CommandThread(void *argv)
+{
+    int	nready;
+    struct pollfd targets[1];
+    char buf[2048];
+
+	targets[0].fd = fileno(stdin);
+	targets[0].events = POLLIN | POLLERR;
+
+	while(EndFlag == 0){
+        // Stdinを監視
+		switch((nready = poll(targets, 1, 1000))){
+			case -1:
+				if(errno != EINTR){
+					perror("poll");
+				}
+				break;
+			case 0:
+				break;
+			default:
+                // イベント発生
+				if(targets[0].revents & (POLLIN | POLLERR)){
+					fgets(buf, sizeof(buf), stdin);
+					AnalysCmd(buf);
+				}
+				break;
+		}
+	}
+
+	return NULL;
+}
 
 /**
  * @brief Etherフレームの受信処理
@@ -41,6 +82,7 @@ void *EthThread(void *arg)
 	fds[0].events = POLLIN | POLLERR;
 
 	while(EndFlag == 0){
+        // DeviceSocを監視
 		switch((nready = poll(fds, 1, 1000))){
 			case -1:
 				perror("poll");
@@ -139,6 +181,8 @@ void sig_term(int signal)
 int main(int argc, char *argv[])
 {
     char buf[80];
+    pthread_attr_t	attr;
+    pthread_t	thread_id;
 
     // 擬似乱数のseedを設定
     srandom(time(NULL));
@@ -171,12 +215,21 @@ int main(int argc, char *argv[])
     // SIGIPEによる予期しない終了を防ぐ
 	signal(SIGPIPE, SIG_IGN);
 
+	pthread_attr_init(&attr);
+	pthread_attr_setstacksize(&attr, 102400);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
     // Ethernetフレーム受信用スレッドの作成
-
+    if(pthread_create(&thread_id, &attr, EthThread, NULL) != 0){
+		printf("pthread_create: error\n");
+	}
     // Command入力用スレッドの作成
+	if(pthread_create(&thread_id, &attr, CommandThread, NULL) != 0){
+		printf("pthread_create: error\n");
+	}
 
-    // TODO: スレッドの作成
-    EthThread(NULL);
+    while(EndFlag == 0){
+		sleep(1);
+	}
 
     // ARPテーブルの開放
     FreeArpTable();
