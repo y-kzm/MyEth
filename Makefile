@@ -1,5 +1,5 @@
 PROGRAM=MyEth
-OBJS=main.o utils.o ether.o arp.o ip.o icmp.o
+OBJS=main.o utils.o ether.o arp.o ip.o icmp.o cmd.o
 SRCS=$(OBJS:%.o=%.c)
 CFLAGS=-Wall -g
 LDFLAGS=-pthread
